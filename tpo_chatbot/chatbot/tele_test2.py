@@ -336,6 +336,7 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             response = "Sorry, no internship information is available for this company."
         await update.message.reply_text(response)
+        
 
     if 'placement statistics' in user_message:
         statistics = PlacementStatistics.objects.all()
