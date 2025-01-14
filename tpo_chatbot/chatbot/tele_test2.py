@@ -23,7 +23,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tpo_chatbot.settings")
 django.setup()
 
 
-from chatbot.models import FAQ, CompanyInfo, Internship, Student, PlacementRecord, QuickInfo
+from chatbot.models import FAQ, CompanyInfo, Internship, PlacementStatistics, Policy, PolicyFAQ, Role, Student, PlacementRecord, QuickInfo
 from django.conf import settings
 
 def preprocess_query(query: str):
@@ -53,8 +53,8 @@ def send_otp(email):
     # Email configuration
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    sender_email = "yuktakhairnar399@gmail.com"  
-    sender_password = "hioemobjfdojbhsn"  
+    sender_email = "harsh.hpds@gmail.com"  
+    sender_password = "fqhcumomzvqtvgoy"  
     # Email content
     subject = "Your OTP for TPO Chatbot Authentication"
     body = f"Your OTP is: {otp}. It is valid for 5 minutes."
@@ -271,6 +271,40 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         await update.message.reply_text(response)
         return
+    if user_message == "8":
+        response = (
+            "Policies:\n"
+            "1. Placement Policy FAQ\n"
+            "2. Internship Policy FAQ\n"
+            "Reply with the question number (e.g., '8.1' for Placement Policy FAQ)."
+        )
+        await update.message.reply_text(response)
+        return
+
+
+    if user_message == "8.1":
+        # Fetch placement policy FAQ from the database
+        faqs = await sync_to_async(lambda: PolicyFAQ.objects.filter(policy_category="Placement Policy").all())()       
+        if faqs:
+            response = "Placement Policy FAQs:\n"
+            for faq in faqs:
+                response += f"Q: {faq.question}\nA: {faq.answer}\n\n"
+        else:
+            response = "No Placement Policy FAQs found."
+        await update.message.reply_text(response)
+        return
+
+    if user_message == "8.2":
+        # Fetch internship policy FAQ from the database
+        faqs = await sync_to_async(lambda: PolicyFAQ.objects.filter(policy_category="TPO VJTI Policy").all())()     
+        if faqs:
+            response = "Internship Policy FAQs:\n"
+            for faq in faqs:
+                response += f"Q: {faq.question}\nA: {faq.answer}\n\n"
+        else:
+            response = "No Internship Policy FAQs found."
+        await update.message.reply_text(response)
+        return
 
     if user_message.startswith("apply:"):
         internship_title = user_message.split(":", 1)[1].strip()
@@ -284,6 +318,29 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             response = f"No application link found for {internship_title}."
         await update.message.reply_text(response)
         return
+    
+    if 'role' in user_message:
+        company_name = user_message.split("at")[-1].strip()
+        roles = Role.objects.filter(company__company_name=company_name)
+        if roles.exists():
+            response = "\n".join([f"{role.role_title}: {role.role_description}" for role in roles])
+        else:
+            response = "Sorry, I couldn't find roles for this company."
+        await update.message.reply_text(response)
+
+    if 'internship' in user_message:
+        company_name = user_message.split("at")[-1].strip()
+        internships = Internship.objects.filter(company__company_name=company_name)
+        if internships.exists():
+            response = "\n".join([f"{internship.internship_title}: {internship.internship_description}" for internship in internships])
+        else:
+            response = "Sorry, no internship information is available for this company."
+        await update.message.reply_text(response)
+
+    if 'placement statistics' in user_message:
+        statistics = PlacementStatistics.objects.all()
+        response = "\n".join([f"Branch: {stat.branch}, Placement Percentage: {stat.placement_percentage}%" for stat in statistics])
+        await update.message.reply_text(response)
 
     await update.message.reply_text(
         "Invalid option! Please start again by typing 'Menu' and select a valid option."
