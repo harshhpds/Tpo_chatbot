@@ -5,11 +5,12 @@ import django
 import logging
 import random
 import smtplib
+import requests  # ✅ Added for Rasa API calls
 from email.mime.text import MIMEText
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from asgiref.sync import sync_to_async
-
+from django.conf import settings
 
 # Configure logging
 logging.basicConfig(
@@ -22,40 +23,16 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tpo_chatbot.settings")
 django.setup()
 
-
-from chatbot.models import FAQ, CompanyInfo, Internship, PlacementStatistics, Policy, PolicyFAQ, Role, Student, PlacementRecord, QuickInfo
-from django.conf import settings
-
-def preprocess_query(query: str):
-    tokens = re.findall(r'\b\w+\b', query.lower())
-    return tokens
-
-def identify_intent(tokens):
-    intents = {
-        'faqs': ['hours', 'contact', 'head', 'location', 'what does'],
-        'placement_info': ['company', 'placed', 'package', 'branch', 'students'],
-        'company_info': ['tell me about', 'selection process', 'roles', 'average package'],
-        'statistics': ['how many', 'average', 'median', 'trend'],
-        'preparation': ['eligibility', 'prepare', 'workshops', 'cgpa'],
-        'internship_info': ['internship', 'apply', 'companies'],
-        'comparison': ['highest package', 'compare', 'top companies'],
-    }
-
-    for intent, keywords in intents.items():
-        if any(keyword in tokens for keyword in keywords):
-            return intent
-    return 'miscellaneous'
+from chatbot.models import FAQ, CompanyInfo, Internship, PlacementStatistics, PolicyFAQ, Role, Student, PlacementRecord
 
 # Function to send OTP via email
 def send_otp(email):
-    otp = random.randint(100000, 999999)  # Generate a 6-digit OTP
-
-    # Email configuration
+    otp = random.randint(100000, 999999)
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
     sender_email = "harsh.hpds@gmail.com"  
-    sender_password = "fqhcumomzvqtvgoy"  
-    # Email content
+    sender_password = "fqhcumomzvqtvgoy"
+    
     subject = "Your OTP for TPO Chatbot Authentication"
     body = f"Your OTP is: {otp}. It is valid for 5 minutes."
     msg = MIMEText(body)
@@ -63,7 +40,6 @@ def send_otp(email):
     msg["From"] = sender_email
     msg["To"] = email
 
-    # Send email
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
@@ -80,7 +56,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data["state"] = "WAITING_FOR_EMAIL"
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Route logic based on the user's state
     state = context.user_data.get("state")
 
     if state == "WAITING_FOR_EMAIL":
@@ -94,9 +69,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     email = update.message.text
-
-    # Validate email format and enforce the domain restriction
-    if re.match(r"[^@\s]+@mc\.vjti\.ac\.in$", email):  # Check domain is @mc.vjti.ac.in
+    if re.match(r"[^@\s]+@mc\.vjti\.ac\.in$", email):
         otp = send_otp(email)
         if otp:
             context.user_data["email"] = email
@@ -110,9 +83,8 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def handle_otp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_otp = update.message.text
-
     try:
-        user_otp = int(user_otp)  # Convert input to integer
+        user_otp = int(user_otp)
     except ValueError:
         await update.message.reply_text("Invalid OTP format. Please enter a numeric OTP.")
         return
@@ -128,6 +100,7 @@ async def handle_otp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             "5. Preparation Tips\n"
             "6. Internship Information\n"
             "7. Comparison\n"
+            "8. Policies\n"
             "Reply with the option number (e.g., '1' for FAQs)."
         )
     else:
@@ -146,11 +119,11 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "5. Preparation Tips\n"
             "6. Internship Information\n"
             "7. Comparison\n"
+            "8. Policies\n"
             "Reply with the option number (e.g., '1' for FAQs)."
         )
         await update.message.reply_text(response)
         return
-
     # FAQs
     if user_message == "1":
         response = (
@@ -271,41 +244,17 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         await update.message.reply_text(response)
         return
+    
     if user_message == "8":
-        response = (
-            "Policies:\n"
-            "1. Placement Policy FAQ\n"
-            "2. Internship Policy FAQ\n"
-            "Reply with the question number (e.g., '8.1' for Placement Policy FAQ)."
-        )
-        await update.message.reply_text(response)
+        await update.message.reply_text("You can ask me any policy-related question, and I will fetch the relevant information for you.")
         return
 
-
-    if user_message == "8.1":
-        # Fetch placement policy FAQ from the database
-        faqs = await sync_to_async(lambda: PolicyFAQ.objects.filter(policy_category="Placement Policy").all())()       
-        if faqs:
-            response = "Placement Policy FAQs:\n"
-            for faq in faqs:
-                response += f"Q: {faq.question}\nA: {faq.answer}\n\n"
-        else:
-            response = "No Placement Policy FAQs found."
-        await update.message.reply_text(response)
+    # ✅ Call Rasa API for policy questions
+    rasa_response = get_rasa_response(user_message)
+    if rasa_response:
+        await update.message.reply_text(rasa_response)
         return
-
-    if user_message == "8.2":
-        # Fetch internship policy FAQ from the database
-        faqs = await sync_to_async(lambda: PolicyFAQ.objects.filter(policy_category="TPO VJTI Policy").all())()     
-        if faqs:
-            response = "Internship Policy FAQs:\n"
-            for faq in faqs:
-                response += f"Q: {faq.question}\nA: {faq.answer}\n\n"
-        else:
-            response = "No Internship Policy FAQs found."
-        await update.message.reply_text(response)
-        return
-
+    
     if user_message.startswith("apply:"):
         internship_title = user_message.split(":", 1)[1].strip()
         internship = await sync_to_async(lambda: Internship.objects.filter(internship_title__iexact=internship_title).first())()
@@ -336,24 +285,38 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             response = "Sorry, no internship information is available for this company."
         await update.message.reply_text(response)
-        
+        #efefg
 
     if 'placement statistics' in user_message:
         statistics = PlacementStatistics.objects.all()
         response = "\n".join([f"Branch: {stat.branch}, Placement Percentage: {stat.placement_percentage}%" for stat in statistics])
         await update.message.reply_text(response)
 
-    await update.message.reply_text(
-        "Invalid option! Please start again by typing 'Menu' and select a valid option."
-    )
+
+    await update.message.reply_text("Invalid option! Please type 'Menu' to select a valid option.")
+
+def get_rasa_response(query):
+    """ Calls the Rasa API and gets a response for policy-related queries. """
+    rasa_url = "http://localhost:5005/webhooks/rest/webhook"  # Change port if different
+    payload = {"sender": "user", "message": query}
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        response = requests.post(rasa_url, json=payload, headers=headers)
+        response_data = response.json()
+
+        if response_data and len(response_data) > 0:
+            return response_data[0].get("text", "I couldn't find an answer. Please check with the TPO.")
+        else:
+            return "I couldn't understand your question. Try rephrasing it."
+    except Exception as e:
+        logger.error(f"Error fetching response from Rasa: {e}")
+        return "Sorry, there was an issue processing your request."
+
 def main():
     application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-
-    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-
-    # Run the bot until manually stopped
     application.run_polling()
 
 if __name__ == '__main__':

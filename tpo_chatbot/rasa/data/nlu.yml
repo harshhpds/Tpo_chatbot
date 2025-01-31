@@ -1,0 +1,22 @@
+version: "3.1"
+
+nlu:
+- intent: greet
+  examples: |
+    - Hi
+    - Hello
+    - Hey there!
+    - Good morning
+
+
+- intent: ask_policy
+  examples: |
+    - Tell me about the PPO policy.
+    - What is the rule regarding PPO?
+    - Can I apply for another company after a PPO?
+    - What happens if I get a PPO?
+    - Am I eligible for placements if I have a PPO?
+    - Can I reject a PPO?
+    - What is the rule for multiple placement offers?
+    - Is there a restriction on the number of offers I can accept?
+
