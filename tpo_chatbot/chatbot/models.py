@@ -137,14 +137,10 @@ class Policy(models.Model):
     
 
 class PolicyFAQ(models.Model):
-    question = models.TextField()
-    answer = models.TextField()
-    policy_category = models.CharField(max_length=255, choices=[
-        ('Placement Policy', 'Placement Policy'),
-        ('TPO VJTI Policy', 'TPO VJTI Policy'),
-    ], default='Placement Policy')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    category = models.CharField(max_length=100, null=True)  # e.g., Placement, Internship, Code of Conduct
+    question = models.TextField()               # The question or intent
+    keywords = models.TextField(default="default")               # Comma-separated keywords for better searchability
+    answer = models.TextField()                 # The detailed answer
 
     def __str__(self):
         return self.question
