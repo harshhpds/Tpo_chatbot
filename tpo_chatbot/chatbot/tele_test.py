@@ -23,7 +23,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tpo_chatbot.settings")
 django.setup()
 
 
-from chatbot.models import FAQ, CompanyInfo, Internship, PlacementStatistics, Policy, Role, Student, PlacementRecord, QuickInfo
+from chatbot.models import FAQ, CompanyInfo, Internship, PlacementStatistics, Policy, PolicyFAQ, Role, Student, PlacementRecord, QuickInfo
 from django.conf import settings
 
 def preprocess_query(query: str):
@@ -271,8 +271,40 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         await update.message.reply_text(response)
         return
-    
-    
+    if user_message == "8":
+        response = (
+            "Policies:\n"
+            "1. Placement Policy FAQ\n"
+            "2. Internship Policy FAQ\n"
+            "Reply with the question number (e.g., '8.1' for Placement Policy FAQ)."
+        )
+        await update.message.reply_text(response)
+        return
+
+
+    if user_message == "8.1":
+        # Fetch placement policy FAQ from the database
+        faqs = await sync_to_async(lambda: PolicyFAQ.objects.filter(policy_category="Placement Policy").all())()       
+        if faqs:
+            response = "Placement Policy FAQs:\n"
+            for faq in faqs:
+                response += f"Q: {faq.question}\nA: {faq.answer}\n\n"
+        else:
+            response = "No Placement Policy FAQs found."
+        await update.message.reply_text(response)
+        return
+
+    if user_message == "8.2":
+        # Fetch internship policy FAQ from the database
+        faqs = await sync_to_async(lambda: PolicyFAQ.objects.filter(policy_category="TPO VJTI Policy").all())()     
+        if faqs:
+            response = "Internship Policy FAQs:\n"
+            for faq in faqs:
+                response += f"Q: {faq.question}\nA: {faq.answer}\n\n"
+        else:
+            response = "No Internship Policy FAQs found."
+        await update.message.reply_text(response)
+        return
 
     if user_message.startswith("apply:"):
         internship_title = user_message.split(":", 1)[1].strip()
@@ -304,6 +336,7 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             response = "Sorry, no internship information is available for this company."
         await update.message.reply_text(response)
+        #efefg
 
     if 'placement statistics' in user_message:
         statistics = PlacementStatistics.objects.all()
