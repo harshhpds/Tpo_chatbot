@@ -20,12 +20,13 @@ pipeline:
     min_ngram: 3
     max_ngram: 5
   - name: DIETClassifier
-    epochs: 100
+    epochs: 200  # Increased from 100 to 200 for better accuracy
     entity_recognition: False
   - name: ResponseSelector
-    epochs: 100
+    epochs: 150  # Increased training time for better response selection
   - name: FallbackClassifier
-    threshold: 0.2
+    threshold: 0.4  # Increased from 0.2 to 0.4 to avoid incorrect low-confidence responses
+
 
 policies:
 - name: RulePolicy

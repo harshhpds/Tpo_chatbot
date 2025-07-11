@@ -12,6 +12,7 @@ class FAQ(models.Model):
 class CompanyInfo(models.Model):
     company_name = models.CharField(max_length=100, unique=True)
     description = models.TextField()
+    website = models.TextField(null=True, blank=True)
     contact_email = models.EmailField(null=True, blank=True)
     additional_info = models.TextField(null=True, blank=True)
 
@@ -30,7 +31,6 @@ class Role(models.Model):
 
     def __str__(self):
         return f"{self.role_title} at {self.company.company_name}"
-    
 
 class Internship(models.Model):
     company = models.ForeignKey(CompanyInfo, on_delete=models.CASCADE, related_name='internships')
@@ -77,9 +77,10 @@ class PlacementStatistics(models.Model):
     total_placed = models.IntegerField()  # Total students placed
     placement_percentage = models.DecimalField(max_digits=5, decimal_places=2)  # Placement percentage
     average_ctc = models.DecimalField(max_digits=10, decimal_places=2)  # Average CTC in LPA
+    academic_year = models.CharField(max_length=9,null=True )  # E.g., "2022-2023"
 
     def __str__(self):
-        return f"{self.branch} - {self.placement_percentage}% Placement"
+        return f"{self.branch} - {self.placement_percentage}% Placement ({self.academic_year})"
 
 class TopCompanyOffers(models.Model):
     company_name = models.CharField(max_length=100)
@@ -89,7 +90,6 @@ class TopCompanyOffers(models.Model):
 
     def __str__(self):
         return f"{self.company_name} - {self.ctc_in_lakhs} LPA ({self.academic_year})"
-
 
 class UserProfile(AbstractUser):
     USER_TYPE_CHOICES = [
@@ -134,13 +134,55 @@ class Policy(models.Model):
 
     def __str__(self):
         return f"{self.policy_type} - {self.policy_title}"
-    
 
 class PolicyFAQ(models.Model):
     category = models.CharField(max_length=100, null=True)  # e.g., Placement, Internship, Code of Conduct
     question = models.TextField()               # The question or intent
     keywords = models.TextField(default="default")               # Comma-separated keywords for better searchability
-    answer = models.TextField()                 # The detailed answer
-
+    answer = models.TextField()
+    embedding = models.JSONField(null=True, blank=True)
     def __str__(self):
         return self.question
+    
+
+
+class PolicyFAQ2(models.Model):
+    POLICY_TYPES = [
+        ('Placement', 'Placement'),
+        ('Internship', 'Internship'),
+        ('Code of Conduct', 'Code of Conduct'),
+        ('General', 'General'),
+    ]
+
+    APPLICABLE_TO_CHOICES = [
+        ('BTech', 'BTech'),
+        ('MTech', 'MTech'),
+        ('MCA', 'MCA'),
+        ('All', 'All'),
+    ]
+
+    # Core fields
+    category = models.CharField(max_length=100, null=True, blank=True)  # e.g., Placement, Internship, Code of Conduct
+    question = models.TextField()  # The question or intent
+    answer = models.TextField()  # The detailed answer
+    policy_type = models.CharField(max_length=50, choices=POLICY_TYPES, default='General')  # Type of policy
+    academic_year = models.CharField(max_length=9, null=True, blank=True)  # E.g., "2023-2024"
+    source = models.CharField(max_length=255, null=True, blank=True)  # Source of the policy (e.g., PDF name)
+
+    # Metadata for better searchability
+    applicable_to = models.CharField(max_length=50, choices=APPLICABLE_TO_CHOICES, default='All')  # Who the policy applies to
+    related_policy = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)  # Link to related policies
+
+    def __str__(self):
+        return f"{self.question} ({self.policy_type})"
+
+
+
+class Document(models.Model):
+    title = models.CharField(max_length=200)
+    category = models.CharField(max_length=50)  # e.g., "company_list", "policy", etc.
+    file = models.FileField(upload_to='documents/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
