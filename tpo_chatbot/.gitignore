@@ -1,6 +1,6 @@
 # Ignore Python virtual environments
 venv/
-
+rasa/
 # Byte-compiled / cache files
 __pycache__/
 *.py[cod]
