@@ -1,2 +1,8 @@
 [variables]
 PYTHON_VERSION = "3.10"
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python tpo_chatbot/chatbot/gemini_api.py"
