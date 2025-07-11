@@ -2,7 +2,6 @@
   "build": {
     "env": "python",
     "root": "tpo_chatbot/chatbot",
-    "buildCommand": "pip install -r requirements.txt",
     "startCommand": "python gemini_api.py"
   }
 }
